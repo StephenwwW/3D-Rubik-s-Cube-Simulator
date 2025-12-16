@@ -24,7 +24,7 @@ A high-fidelity, web-based 3D Rubik's Cube simulator built with Three.js. Featur
 
 Auto-Solve 
 
-<img src="preview/Demo.mp4" width="400" alt="Auto Solve Demo"> 
+<video src="preview/Demo.mp4" controls="controls" width="400"></video>
 
 ### How to Use
 
@@ -76,9 +76,7 @@ This project is released under the [MIT License](LICENSE).
 
 ### 預覽
 
-| 自動還原演示 | 操作介面 |
-| :---: | :---: |
-| <img src="preview/demo_solve.gif" width="400" alt="Auto Solve Demo"> | <img src="preview/ui_screenshot.png" width="400" alt="UI Screenshot"> |
+<video src="preview/Demo.mp4" controls="controls" width="400"></video>
 
 ### 如何使用
 
