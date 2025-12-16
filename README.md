@@ -24,7 +24,7 @@ A high-fidelity, web-based 3D Rubik's Cube simulator built with Three.js. Featur
 
 Auto-Solve 
 
-<video src="https://github.com/StephenwwW/3D-Rubik-s-Cube-Simulator/raw/main/preview/Demo.mp4" controls="controls" width="400"></video>
+<video src="https://github.com/user-attachments/assets/c3df2f16-4509-415c-bde3-f985143650c0" controls="controls" width="400"></video>
 
 ### How to Use
 
@@ -76,7 +76,7 @@ This project is released under the [MIT License](LICENSE).
 
 ### 預覽
 
-<video src="preview/Demo.mp4" controls="controls" width="400"></video>
+<video src="https://github.com/user-attachments/assets/c3df2f16-4509-415c-bde3-f985143650c0" controls="controls" width="400"></video>
 
 ### 如何使用
 
