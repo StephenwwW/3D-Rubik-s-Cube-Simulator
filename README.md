@@ -74,10 +74,6 @@ This project is released under the [MIT License](LICENSE).
 
 **靈活的操控性**: 支援 0.25x 至 1.0x 的動畫速度調整，並提供直觀的 UI 按鈕進行單層轉動與視角控制。
 
-### 預覽
-
-<video src="https://github.com/user-attachments/assets/c3df2f16-4509-415c-bde3-f985143650c0" controls="controls" width="400"></video>
-
 ### 如何使用
 
 1.  **下載**: 複製本專案代碼，或直接下載 `3D魔術方塊(外觀優化).html` 檔案。
