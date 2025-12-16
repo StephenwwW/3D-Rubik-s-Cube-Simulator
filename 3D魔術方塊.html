@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 魔術方塊 - 全能模擬器 (2x2, 3x3, 4x4)</title>
+    <!-- 使用 GitHub Raw CDN 載入 min2phase.js -->
+    <script src="https://cdn.jsdelivr.net/gh/cs0x7f/min2phase.js@master/min2phase.js"></script>
+    <!-- 引入等寬字體 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@500&display=swap" rel="stylesheet">
+    
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #222; font-family: "Segoe UI", sans-serif; }
+        #container { width: 100vw; height: 100vh; }
+        
+        /* 頂部打亂顯示區 */
+        #scramble-display {
+            position: absolute; top: 10px; left: 0; width: 100%;
+            text-align: center; color: #fff; z-index: 15;
+            pointer-events: none;
+        }
+        #scramble-text {
+            display: inline-block;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 1.1rem;
+            color: #ddd;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        /* 計時器 */
+        #timer-wrapper {
+            position: absolute; top: 60px; left: 20px; text-align: left;
+            pointer-events: none; z-index: 20; user-select: none;
+        }
+        #timer-val {
+            font-family: 'Roboto Mono', monospace; font-size: 5rem; font-weight: 500;
+            color: #b0bec5; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            letter-spacing: -2px; transition: color 0.3s;
+        }
+        .timer-idle { color: #90a4ae !important; }
+        .timer-running { color: #e0e0e0 !important; }
+        .timer-finished { color: #81c784 !important; text-shadow: 0 0 15px rgba(129, 199, 132, 0.4) !important; }
+
+        /* UI 面板 */
+        #ui {
+            position: absolute; bottom: 20px; right: 20px; width: 320px; top: auto;
+            background: rgba(30, 30, 30, 0.95); border: 1px solid #555;
+            border-radius: 8px; color: #eee;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+            display: flex; flex-direction: column;
+            transition: max-height 0.3s ease; overflow: hidden; z-index: 10;
+            max-height: 90vh;
+        }
+
+        .ui-header {
+            padding: 12px 15px; background: #333; border-bottom: 1px solid #444;
+            display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; user-select: none;
+        }
+        .ui-header h1 { margin: 0; font-size: 1rem; font-weight: 600; color: #fff; }
+        .toggle-icon { transition: transform 0.3s; font-size: 0.8rem; }
+        .collapsed .toggle-icon { transform: rotate(90deg); }
+        .collapsed + .ui-content { display: none; }
+        
+        .ui-content { padding: 15px; overflow-y: auto; }
+
+        .btn-group { display: flex; gap: 8px; margin-bottom: 10px; }
+        
+        button {
+            background: #444; color: #fff; border: 1px solid #666;
+            padding: 10px; cursor: pointer; border-radius: 4px; flex: 1;
+            font-size: 0.9rem; transition: all 0.1s; font-weight: 500;
+        }
+        button:hover { background: #555; transform: translateY(-1px); border-color: #888; }
+        button:active { transform: translateY(1px); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; background: #333; color: #777; }
+
+        #btn-scramble { background: #c62828; border-color: #b71c1c; }
+        #btn-auto { background: #1565C0; border-color: #0D47A1; width: 100%; font-weight: bold; margin-bottom: 10px; padding: 12px; font-size: 1rem; }
+        
+        .control-row {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #3a3a3a; padding: 8px 12px; border-radius: 4px;
+            margin-bottom: 10px; border: 1px solid #555;
+        }
+        .control-row label { font-size: 0.9rem; color: #ccc; }
+        .control-row select, .control-row input {
+            background: #222; color: #fff; border: 1px solid #666;
+            padding: 5px; border-radius: 4px; outline: none; font-size: 0.9rem;
+        }
+
+        .status-bar {
+            margin-top: 10px; padding: 8px 12px;
+            background: rgba(0,0,0,0.3); border-left: 4px solid #777;
+            font-size: 0.85rem; color: #ccc; font-family: monospace;
+            white-space: pre-wrap; word-break: break-all;
+            max-height: 100px; overflow-y: auto;
+        }
+        .status-bar.ok { border-left-color: #4caf50; color: #a5d6a7; }
+        .status-bar.busy { border-left-color: #ff9800; color: #ffe0b2; }
+        .status-bar.error { border-left-color: #f44336; color: #ef9a9a; background: rgba(50, 0, 0, 0.5); }
+
+        .controls-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px;
+        }
+        
+        #btn-retry { background: #F57C00; border-color: #E65100; font-size: 0.8rem; padding: 8px; margin-top: 5px; display: none; }
+        
+        /* Checkbox style */
+        input[type="checkbox"] { transform: scale(1.2); margin-left: 10px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+    <!-- 打亂公式顯示 -->
+    <div id="scramble-display">
+        <div id="scramble-text">準備就緒</div>
+    </div>
+
+    <!-- WCA 風格計時器 (左側) -->
+    <div id="timer-wrapper">
+        <div id="timer-val" class="timer-idle">0.00</div>
+    </div>
+
+    <div id="ui">
+        <div class="ui-header" onclick="toggleUI()">
+            <h1>魔術方塊模擬器</h1>
+            <span class="toggle-icon">▼</span>
+        </div>
+        <div class="ui-content">
+            <!-- 階數選擇 -->
+            <div class="control-row">
+                <label>方塊階數:</label>
+                <select id="size-select" onchange="changeCubeSize(this.value)">
+                    <option value="2">2x2 (Pocket)</option>
+                    <option value="3" selected>3x3 (標準)</option>
+                    <option value="4">4x4 (Revenge)</option>
+                </select>
+            </div>
+
+            <div class="btn-group">
+                <button id="btn-scramble">隨機打亂</button>
+                <button id="btn-reset">重置</button>
+            </div>
+            
+            <!-- 自動還原按鈕 -->
+            <button id="btn-auto" onclick="autoSolve()">Kociemba 演算法還原</button>
+            
+            <!-- 速度控制 -->
+            <div class="control-row">
+                <label>還原速度:</label>
+                <select id="speed-select" onchange="updateSpeed(this.value)">
+                    <option value="1">1.00x (原始)</option>
+                    <option value="0.75">0.75x</option>
+                    <option value="0.5">0.50x</option>
+                    <option value="0.25">0.25x</option>
+                </select>
+            </div>
+
+            <!-- 寬層轉動 (4x4 專用) -->
+            <div class="control-row" id="wide-ctrl" style="display:none;">
+                <label for="wide-move" style="cursor:pointer; width:100%; display:flex; justify-content:space-between; align-items:center;">
+                    <span>寬層轉動 (Wide Moves)</span>
+                    <input type="checkbox" id="wide-move">
+                </label>
+            </div>
+
+            <button id="btn-retry" onclick="retryInit()">⟳ 重新初始化演算法</button>
+
+            <div class="status-bar" id="status">系統檢查中...</div>
+
+            <div class="controls-grid">
+                <button onclick="userMove('R')">R</button>
+                <button onclick="userMove('L')">L</button>
+                <button onclick="userMove('U')">U</button>
+                <button onclick="userMove('D')">D</button>
+                <button onclick="userMove('F')">F</button>
+                <button onclick="userMove('B')">B</button>
+            </div>
+            <div class="controls-grid">
+                <button onclick="userMove(`R'`)">R'</button>
+                <button onclick="userMove(`L'`)">L'</button>
+                <button onclick="userMove(`U'`)">U'</button>
+                <button onclick="userMove(`D'`)">D'</button>
+                <button onclick="userMove(`F'`)">F'</button>
+                <button onclick="userMove(`B'`)">B'</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="container"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let scene, camera, renderer, controls;
+        let allCubies = [];
+        let isAnimating = false;
+        let moveQueue = [];
+        let autoSolving = false;
+        let isSolverReady = false;
+        let animationSpeed = 1.0;
+        
+        let cubeSize = 3; 
+        let timerRunning = false;
+        let timerStartTime = 0;
+        let timerReqId = null;
+        let isScrambled = false; 
+        let moveHistory = []; 
+
+        const pivot = new THREE.Object3D();
+        
+        let state = []; 
+        const U=0, R=1, F=2, D=3, L=4, B=5;
+
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status-bar error';
+            statusEl.innerText = `系統錯誤:\n${msg}\nLine: ${lineNo}`;
+            return false;
+        };
+
+        window.onload = init;
+
+        function init() {
+            const container = document.getElementById('container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x222222);
+            scene.add(pivot);
+
+            camera = new THREE.PerspectiveCamera(40, window.innerWidth/window.innerHeight, 0.1, 100);
+            camera.position.set(5, 5, 8);
+            camera.lookAt(0,0,0);
+
+            renderer = new THREE.WebGLRenderer({antialias:true});
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+            const dl = new THREE.DirectionalLight(0xffffff, 1.2);
+            dl.position.set(10, 20, 10);
+            scene.add(dl);
+            scene.add(new THREE.DirectionalLight(0xffffff, 0.4).translateY(-10));
+
+            createCube(3);
+            
+            setStatus("準備載入演算法庫...", "busy");
+            initKociemba();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth/window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            document.getElementById('btn-scramble').onclick = scramble;
+            document.getElementById('btn-reset').onclick = resetCube;
+            
+            window.toggleUI = () => {
+                const ui = document.getElementById('ui');
+                const header = ui.querySelector('.ui-header');
+                header.classList.toggle('collapsed');
+            };
+            window.userMove = userMove;
+            window.autoSolve = autoSolve; 
+            window.retryInit = initKociemba;
+            window.updateSpeed = updateSpeed;
+            window.changeCubeSize = changeCubeSize;
+
+            animate();
+        }
+        
+        function updateSpeed(val) {
+            animationSpeed = parseFloat(val);
+        }
+
+        function changeCubeSize(val) {
+            const newSize = parseInt(val);
+            if(newSize === cubeSize) return;
+            
+            if(autoSolving) {
+                autoSolving = false;
+                moveQueue = [];
+                isAnimating = false;
+                pivot.rotation.set(0,0,0);
+            }
+
+            createCube(newSize);
+            resetTimerUI();
+            document.getElementById('scramble-text').innerText = "準備就緒";
+            
+            const autoBtn = document.getElementById('btn-auto');
+            const wideCtrl = document.getElementById('wide-ctrl');
+            
+            if(newSize === 4) {
+                autoBtn.innerText = "原路回溯 (Rewind)";
+                autoBtn.disabled = false; 
+                wideCtrl.style.display = 'flex';
+                setStatus("4x4 模式 (僅支援回溯還原)", "ok");
+            } else if(newSize === 2) {
+                autoBtn.innerText = "2x2 演算法還原";
+                autoBtn.disabled = false;
+                wideCtrl.style.display = 'none';
+                setStatus("2x2 模式 (支援演算法)", "ok");
+            } else {
+                autoBtn.innerText = "Kociemba 演算法還原";
+                autoBtn.disabled = false;
+                wideCtrl.style.display = 'none';
+                setStatus("3x3 模式 (支援 Kociemba)", "ok");
+            }
+        }
+
+        function createCube(n) {
+            cubeSize = n;
+            allCubies.forEach(c => scene.remove(c));
+            allCubies = [];
+            state = [];
+            moveHistory = []; 
+            
+            for(let i=0; i<6 * n * n; i++) state.push(Math.floor(i / (n*n)));
+
+            const geo = new THREE.BoxGeometry(0.94, 0.94, 0.94);
+            const edge = new THREE.EdgesGeometry(geo);
+            const lineMat = new THREE.LineBasicMaterial({color:0x000000, linewidth:2});
+            const palette = [0xFFFFFF, 0xB71C1C, 0x2E7D32, 0xFFD600, 0xE65100, 0x1565C0];
+
+            const offset = (n - 1) / 2;
+
+            for(let x=0; x<n; x++) {
+                for(let y=0; y<n; y++) {
+                    for(let z=0; z<n; z++) {
+                        const mats = [];
+                        mats.push(new THREE.MeshBasicMaterial({color: x===n-1 ? palette[R] : 0x1a1a1a}));
+                        mats.push(new THREE.MeshBasicMaterial({color: x===0 ? palette[L] : 0x1a1a1a}));
+                        mats.push(new THREE.MeshBasicMaterial({color: y===n-1 ? palette[U] : 0x1a1a1a}));
+                        mats.push(new THREE.MeshBasicMaterial({color: y===0 ? palette[D] : 0x1a1a1a}));
+                        mats.push(new THREE.MeshBasicMaterial({color: z===n-1 ? palette[F] : 0x1a1a1a}));
+                        mats.push(new THREE.MeshBasicMaterial({color: z===0 ? palette[B] : 0x1a1a1a}));
+
+                        const mesh = new THREE.Mesh(geo, mats);
+                        mesh.position.set(x - offset, y - offset, z - offset);
+                        mesh.userData = { lx: x, ly: y, lz: z };
+                        mesh.add(new THREE.LineSegments(edge, lineMat));
+                        scene.add(mesh);
+                        allCubies.push(mesh);
+                    }
+                }
+            }
+            const camDist = n === 3 ? 8 : (n === 2 ? 6 : 10);
+            camera.position.set(5, 5, camDist);
+            camera.lookAt(0,0,0);
+        }
+
+        // --- 核心邏輯 ---
+        function applyMoveLogic(s, m) {
+            const n = cubeSize;
+            let base = m[0]; // U, D, R, L, F, B
+            let times = 1;
+            if(m.includes('2')) times=2;
+            else if(m.includes("'")) times=3;
+            
+            let isWide = m.includes('w') || (document.getElementById('wide-move').checked && n === 4 && !autoSolving);
+            
+            for(let t=0; t<times; t++) {
+                rotateLayer(s, base, n, 0); 
+                if(isWide) {
+                    rotateLayer(s, base, n, 1); 
+                }
+            }
+        }
+
+        function rotateLayer(s, faceChar, n, depth) {
+            const F_U=0, F_R=1, F_F=2, F_D=3, F_L=4, F_B=5;
+            let fIdx = {U:0, R:1, F:2, D:3, L:4, B:5}[faceChar];
+            
+            if(depth === 0) {
+                let faceArr = [];
+                let offset = fIdx * n * n;
+                for(let i=0; i<n*n; i++) faceArr.push(s[offset + i]);
+                for(let r=0; r<n; r++) {
+                    for(let c=0; c<n; c++) {
+                        s[offset + (c*n + (n-1-r))] = faceArr[r*n + c];
+                    }
+                }
+            }
+
+            let borders = getBorderIndices(fIdx, n, depth);
+            let temp = borders[3].map(i => s[i]);
+            for(let i=0; i<n; i++) s[borders[3][i]] = s[borders[2][i]];
+            for(let i=0; i<n; i++) s[borders[2][i]] = s[borders[1][i]];
+            for(let i=0; i<n; i++) s[borders[1][i]] = s[borders[0][i]];
+            for(let i=0; i<n; i++) s[borders[0][i]] = temp[i];
+        }
+
+        function getBorderIndices(face, n, d) {
+            const U=0, R=1, F=2, D=3, L=4, B=5;
+            let b = [];
+            
+            if(face === U) {
+                b = [getRange(F, n*d, 1, n), getRange(L, n*d, 1, n), getRange(B, n*d, 1, n), getRange(R, n*d, 1, n)];
+            }
+            if(face === D) {
+                let r = n-1-d;
+                b = [getRange(F, n*r, 1, n), getRange(R, n*r, 1, n), getRange(B, n*r, 1, n), getRange(L, n*r, 1, n)];
+            }
+            if(face === L) {
+                b = [getRange(U, d, n, n), getRange(F, d, n, n), getRange(D, d, n, n), getRange(B, n-1-d, n, n, true)];
+            }
+            if(face === R) {
+                let col = n-1-d;
+                b = [getRange(F, col, n, n, true), getRange(U, col, n, n, true), getRange(B, d, n, n), getRange(D, col, n, n, true)];
+            }
+            if(face === F) {
+                let r_bot = n-1-d;
+                let c_left = d;
+                let r_top = d;
+                let c_right = n-1-d;
+                b = [getRange(U, n*r_bot, 1, n), getRange(R, c_left, n, n), getRange(D, n*r_top, 1, n, true), getRange(L, c_right, n, n, true)];
+            }
+            if(face === B) {
+                let r_top = d;
+                let c_left = d;
+                let r_bot = n-1-d;
+                let c_right = n-1-d;
+                b = [getRange(U, n*r_top, 1, n, true), getRange(L, c_left, n, n), getRange(D, n*r_bot, 1, n), getRange(R, c_right, n, n, true)];
+            }
+            return b;
+        }
+
+        function getRange(face, start, step, count, reverse=false) {
+            let res = [];
+            let offset = face * cubeSize * cubeSize;
+            for(let i=0; i<count; i++) res.push(offset + start + i*step);
+            if(reverse) res.reverse();
+            return res;
+        }
+
+        function startTimer() {
+            if (timerRunning) return;
+            timerRunning = true;
+            timerStartTime = performance.now();
+            document.getElementById('timer-val').className = 'timer-running';
+            function loop() {
+                if (!timerRunning) return;
+                document.getElementById('timer-val').innerText = formatWCATime(performance.now() - timerStartTime);
+                timerReqId = requestAnimationFrame(loop);
+            }
+            timerReqId = requestAnimationFrame(loop);
+        }
+
+        function stopTimer() {
+            if (!timerRunning) return;
+            timerRunning = false;
+            cancelAnimationFrame(timerReqId);
+            document.getElementById('timer-val').innerText = formatWCATime(performance.now() - timerStartTime);
+            document.getElementById('timer-val').className = 'timer-finished';
+        }
+
+        function resetTimerUI() {
+            timerRunning = false;
+            if(timerReqId) cancelAnimationFrame(timerReqId);
+            const t = document.getElementById('timer-val');
+            t.innerText = "0.00"; t.className = "timer-idle";
+        }
+
+        function formatWCATime(ms) {
+            let s = Math.floor(ms/1000);
+            let cs = Math.floor((ms%1000)/10);
+            let m = Math.floor(s/60);
+            s = s%60;
+            let csStr = cs.toString().padStart(2,'0');
+            return m>0 ? `${m}:${s.toString().padStart(2,'0')}.${csStr}` : `${s}.${csStr}`;
+        }
+
+        function checkSolved() {
+            for(let i=0; i<state.length; i++) {
+                if(state[i] !== Math.floor(i/(cubeSize*cubeSize))) return false;
+            }
+            return true;
+        }
+
+        function initKociemba() {
+            setTimeout(() => {
+                if (typeof min2phase === 'undefined') {
+                    if(window.min2phase) window.min2phase = window.min2phase;
+                    else return;
+                }
+                min2phase.initFull();
+                isSolverReady = true;
+                setStatus("Kociemba 引擎就緒", "ok");
+            }, 500);
+        }
+
+        function autoSolve() {
+            if(isAnimating) return;
+            if(cubeSize === 4) {
+                solveReverse4x4();
+            } else if(cubeSize === 3) {
+                solveKociemba3x3();
+            } else if(cubeSize === 2) {
+                solve2x2Via3x3();
+            }
+        }
+
+        // 2x2 演算法: 映射到 3x3 求解
+        function solve2x2Via3x3() {
+            if(!isSolverReady) { initKociemba(); return; }
+            resetTimerUI(); startTimer(); isScrambled = true;
+
+            // 1. 建立一個虛擬 3x3 state
+            // 2x2 角塊 (U0, U1, U2, U3...) 對應 3x3 角塊 (U0, U2, U6, U8...)
+            // 3x3 邊塊與中心塊設為「已還原」狀態
+            let virtState = new Array(54).fill(0);
+            const U=0, R=1, F=2, D=3, L=4, B=5;
+            
+            // 填充虛擬 3x3 的邊塊與中心 (預設還原)
+            // U面: 4, 1,3,5,7.  R面: 13, 10,12,14,16...
+            for(let f=0; f<6; f++) {
+                let off = f*9;
+                [1,3,4,5,7].forEach(k => virtState[off+k] = f); // 邊與中心
+            }
+
+            // 映射角塊: 2x2 indices -> 3x3 indices
+            // 2x2 面內順序: 0(TL), 1(TR), 2(BL), 3(BR)
+            // 3x3 面內順序: 0(TL), 2(TR), 6(BL), 8(BR)
+            const map2to3 = [0, 2, 6, 8];
+            
+            for(let f=0; f<6; f++) {
+                let srcOff = f*4;
+                let dstOff = f*9;
+                for(let i=0; i<4; i++) {
+                    let color = state[srcOff + i];
+                    virtState[dstOff + map2to3[i]] = color;
+                }
+            }
+
+            // 求解
+            const faceMap = ['U', 'R', 'F', 'D', 'L', 'B'];
+            const faceStr = virtState.map(idx => faceMap[idx]).join('');
+            
+            setTimeout(() => {
+                try {
+                    const result = min2phase.solve(faceStr); 
+                    if(result.includes("Error")) {
+                         stopTimer();
+                         document.getElementById('timer-val').className = 'timer-idle';
+                         setStatus("無法還原: " + result, "error");
+                         return;
+                    }
+                    // 過濾掉 min2phase 可能產生的 3x3 冗餘移動 (雖然理論上只動角塊不會有)
+                    const moves = result.trim().split(/\s+/).filter(m => m.length > 0);
+                    
+                    if(moves.length === 0) {
+                        stopTimer();
+                        setStatus("已還原！", "ok");
+                    } else {
+                        executeMoves(moves);
+                    }
+                } catch(e) {
+                    stopTimer();
+                    console.error(e);
+                }
+            }, 50);
+        }
+
+        function solveKociemba3x3() {
+            if(!isSolverReady) { initKociemba(); return; }
+            resetTimerUI(); startTimer(); isScrambled = true; 
+            const faceMap = ['U', 'R', 'F', 'D', 'L', 'B'];
+            const faceStr = state.map(idx => faceMap[idx]).join('');
+            setTimeout(() => {
+                try {
+                    const result = min2phase.solve(faceStr); 
+                    if(result.includes("Error")) {
+                         stopTimer();
+                         document.getElementById('timer-val').className = 'timer-idle';
+                         setStatus("無法還原: " + result, "error");
+                         return;
+                    }
+                    const moves = result.trim().split(/\s+/).filter(m => m.length > 0);
+                    if(moves.length === 0) { stopTimer(); setStatus("已還原！", "ok"); } 
+                    else { executeMoves(moves); }
+                } catch(e) { stopTimer(); console.error(e); }
+            }, 50);
+        }
+
+        function solveReverse4x4() {
+            if(moveHistory.length === 0) { setStatus("沒有歷史步驟", "ok"); return; }
+            setStatus("正在回溯...", "busy");
+            resetTimerUI(); startTimer(); isScrambled = true;
+            let reverseMoves = [];
+            for(let i = moveHistory.length - 1; i >= 0; i--) {
+                let m = moveHistory[i];
+                let inv = m;
+                if(m.includes('2')) inv = m; 
+                else if(m.includes("'")) inv = m.replace("'", ""); 
+                else inv = m + "'"; 
+                reverseMoves.push(inv);
+            }
+            moveHistory = []; 
+            executeMoves(reverseMoves);
+        }
+
+        function resetState() { state = []; }
+        
+        function resetCube() {
+            if(isAnimating) return;
+            moveQueue = [];
+            createCube(cubeSize);
+            resetTimerUI(); 
+            isScrambled = false;
+            document.getElementById('scramble-text').innerText = "重置完成";
+            setStatus("重置完成", "ok");
+        }
+
+        async function executeMoves(moves) {
+            autoSolving = true;
+            for (const m of moves) {
+                applyMoveLogic(state, m);
+                queueAnim(m);
+            }
+        }
+
+        function userMove(m) {
+            if(isAnimating && autoSolving) return;
+            if(cubeSize === 4 && document.getElementById('wide-move').checked) {
+                if(/^[URLDFB]'?2?$/.test(m)) {
+                    if(m.length === 1) m = m + 'w';
+                    else m = m[0] + 'w' + m.substring(1);
+                }
+            }
+            if(!timerRunning && isScrambled && !checkSolved()) startTimer();
+            if(!autoSolving) moveHistory.push(m);
+            applyMoveLogic(state, m);
+            queueAnim(m);
+            if(isScrambled && checkSolved()) {
+                stopTimer();
+                setStatus("還原成功！", "ok");
+                isScrambled = false;
+                moveHistory = [];
+            }
+        }
+
+        function scramble() {
+            if(isAnimating) return;
+            resetTimerUI();
+            moveHistory = []; 
+            let seq = [];
+            
+            // 根據階數決定長度與動作
+            let len = cubeSize === 4 ? 40 : (cubeSize === 2 ? 11 : 25);
+            let ms = [];
+            
+            if(cubeSize === 2) {
+                // 2x2 WCA 只用 R U F
+                ms = ["R","U","F","R'","U'","F'","R2","U2","F2"];
+            } else {
+                ms = ["R","L","U","D","F","B","R'","L'","U'","D'","F'","B'","R2","L2","U2","D2","F2","B2"];
+            }
+            
+            if(cubeSize === 4) {
+                ms.push("Rw","Lw","Uw","Dw","Fw","Bw","Rw'","Lw'","Uw'","Dw'","Fw'","Bw'");
+            }
+
+            let lastBase = "";
+            for(let i=0; i<len; i++) {
+                let m;
+                do { m = ms[Math.floor(Math.random()*ms.length)]; } while(m[0] === lastBase);
+                seq.push(m);
+                moveHistory.push(m); 
+                lastBase = m[0];
+            }
+            document.getElementById('scramble-text').innerText = seq.join(" ");
+            executeMoves(seq);
+            isScrambled = true; 
+            setStatus("打亂完成", "ok");
+        }
+
+        function queueAnim(m) {
+            let axis = {R:'x',L:'x',U:'y',D:'y',F:'z',B:'z'}[m[0]];
+            let layer = 0;
+            const n = cubeSize;
+            const offset = (n-1)/2;
+            
+            if(m[0]==='R') layer = offset;
+            if(m[0]==='L') layer = -offset;
+            if(m[0]==='U') layer = offset;
+            if(m[0]==='D') layer = -offset;
+            if(m[0]==='F') layer = offset;
+            if(m[0]==='B') layer = -offset;
+
+            let isWide = m.includes('w');
+            let depth = 0.1; 
+            if(isWide) depth = 1.1; 
+
+            const baseAngles = {R:-1, L:1, U:-1, D:1, F:-1, B:1};
+            let angle = baseAngles[m[0]] * (Math.PI/2);
+            if(m.includes("'")) angle *= -1;
+            if(m.includes("2")) angle *= 2;
+            
+            let duration = 120 / animationSpeed;
+            moveQueue.push({axis, layer, angle, duration, depth}); 
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(!isAnimating && moveQueue.length > 0) {
+                let move = moveQueue.shift();
+                performRotation(move);
+            }
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function performRotation(move) {
+            isAnimating = true;
+            const axis = move.axis;
+            const layer = move.layer; 
+            const angle = move.angle;
+            const depth = move.depth || 0.1;
+            
+            const active = [];
+            allCubies.forEach(c => {
+                let posVal = c.position[axis];
+                let isTarget = false;
+                if(layer > 0) { // R, U, F
+                    if(posVal > layer - depth) isTarget = true;
+                } else { // L, D, B
+                    if(posVal < layer + depth) isTarget = true;
+                }
+                if(isTarget) active.push(c);
+            });
+
+            pivot.rotation.set(0,0,0);
+            pivot.updateMatrixWorld();
+            active.forEach(c => pivot.attach(c));
+
+            const startTime = Date.now();
+            function loop() {
+                const now = Date.now();
+                let p = (now - startTime) / move.duration;
+                if(p > 1) p = 1;
+                p = 1 - Math.pow(1 - p, 3);
+                pivot.rotation[axis] = angle * p;
+                
+                if(p < 1) requestAnimationFrame(loop);
+                else {
+                    pivot.rotation[axis] = angle;
+                    pivot.updateMatrixWorld();
+                    active.forEach(c => {
+                        scene.attach(c);
+                        c.position.set(
+                            Math.round(c.position.x * 2) / 2,
+                            Math.round(c.position.y * 2) / 2,
+                            Math.round(c.position.z * 2) / 2
+                        );
+                        c.rotation.set(
+                            Math.round(c.rotation.x/(Math.PI/2))*(Math.PI/2),
+                            Math.round(c.rotation.y/(Math.PI/2))*(Math.PI/2),
+                            Math.round(c.rotation.z/(Math.PI/2))*(Math.PI/2)
+                        );
+                        c.updateMatrix();
+                    });
+                    pivot.rotation.set(0,0,0);
+                    isAnimating = false;
+                    
+                    if(moveQueue.length === 0 && autoSolving) {
+                        autoSolving = false;
+                        stopTimer();
+                    }
+                }
+                renderer.render(scene, camera);
+            }
+            loop();
+        }
+        
+        function setStatus(t, c) {
+            let el = document.getElementById('status');
+            el.innerText = t;
+            el.className = 'status-bar '+c;
+        }
+    </script>
+</body>
+</html>
