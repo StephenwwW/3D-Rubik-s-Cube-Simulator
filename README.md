@@ -24,7 +24,7 @@ A high-fidelity, web-based 3D Rubik's Cube simulator built with Three.js. Featur
 
 Auto-Solve 
 
-<video src="preview/Demo.mp4" controls="controls" width="400"></video>
+<video src="https://github.com/StephenwwW/3D-Rubik-s-Cube-Simulator/raw/main/preview/Demo.mp4" controls="controls" width="400"></video>
 
 ### How to Use
 
